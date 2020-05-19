@@ -18,7 +18,7 @@
         Momentumn = [MomentumNetwork(layer=1, neurons=200), MomentumNetwork(layer=2, neurons=50),
             MomentumNetwork(layer=3, neurons=10, final=True)]
 
-- NOTES: you can add more layers in the above `network' list, just remember that set the `final=True'
+- NOTES: you can add more layers in the above `network` list, just remember that set the `final=True'
 of the last layer
 
 ### set hyper-parameters
