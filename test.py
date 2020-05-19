@@ -1,7 +1,9 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 def softmax(x):
-    return np.exp(x) / np.sum(np.exp(x), axis=0, keepdims=True)
+    temp = x - x.max()
+    return np.exp(temp) / np.sum(np.exp(temp), axis=0, keepdims=True)
 
 def tanh(x):
     a = np.exp(x)
@@ -16,9 +18,21 @@ def relu(x):
 
 def relu2deriv(x):
     return (x >= 0).astype(int)
-drop = 0.5
-a = np.random.rand(3, 4)
-b = (a > drop).astype(int)
-print(b)
+
+def scale(x):
+    for i in range(x.shape[1]):
+        print(np.argmax(x[:,i:i+1]))
 
 
+def scale_labels(Y, targets):
+    temp = np.zeros((targets, Y.shape[1]))
+    for i in range(Y.shape[1]):
+        print(i)
+        temp[int(Y[0, i]),i] = 1
+        print(i)
+    return temp
+
+a = np.arange(0.000000001, 1, 0.01)
+b = np.log(a)
+plt.plot(a, b)
+plt.show()

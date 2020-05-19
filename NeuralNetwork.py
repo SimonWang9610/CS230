@@ -10,18 +10,22 @@ def relu_derivate(x):
 def tanh(x):
     return (np.exp(x) + np.exp(-x)) / (np.exp(x) + np.exp(-x))
 
-def tanh_derivate(x):
-    return 1 - tanh(x) ** 2
+def tanh_derivate(output):
+    return 1 - output ** 2
 
 def softmax(x):
-    return np.exp(x) / np.sum(np.exp(x), axis=0, keepdims=True)
+    temp = x - x.max()
+    return np.exp(temp) / np.sum(np.exp(temp), axis=0, keepdims=True)
 
-def softmax_derivate(x):
-    pass
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+def sigmoid_derivate(output):
+        return output * (1 - output)
 
 class NetworkLayers(object):
 
-    def __init__(self, layer, neurons, activation, reg='l1', lambd=0, drop=0, final=False):
+    def __init__(self, layer, neurons, activation='relu', reg='l1', lambd=0, drop=0, final=False):
         '''
         :param layer: i-th layer, integer
         :param neurons: number of nodes of current layer, integer
@@ -52,9 +56,9 @@ class NetworkLayers(object):
         self.input = None
         self.output = None
 
-        self.derivates = []
+        self.derivates = {}
 
-    def initialize_weights_bias(self, col):
+    def initialize_parameters(self, col):
         '''
         :param col: prev.neurons
         :return: weights initialized according to Xavier or He Initialization
@@ -69,6 +73,7 @@ class NetworkLayers(object):
             self.weights = np.random.randn(self.neurons, col) * scale
             self.bias = np.zeros((self.neurons, 1))
 
+
         return self
 
     def calculate_input_output(self, prev_output):
@@ -77,7 +82,7 @@ class NetworkLayers(object):
         :return: input and output of current layer
         '''
 
-        self.input = self.weights.T.dot(prev_output) + self.bias
+        self.input = self.weights.dot(prev_output) + self.bias
 
         # add dropout
         if self.drop:
@@ -94,18 +99,18 @@ class NetworkLayers(object):
             self.output = softmax(self.input)
 
 
-    def final_derivates(self, Y):
+    def final_derivates(self, prev_output, labels):
         '''
-        :param Y: reshaped Y
+        :param labels: reshaped Y, shape as same as that of output
         :return: derivates of the output layer
         '''
-        self.derivates.append(self.output - Y)
+        self.derivates.update({'dA':self.output - labels})
 
-        derivate_Z = self.derivates[0] * softmax_derivate(self.input)
-        self.derivates.append(derivate_Z)
+        derivate_Z = self.derivates['dA'] / labels.shape[1]
+        self.derivates.update({'dZ':derivate_Z})
 
-        derivate_W = self.derivates[1] * Y
-        self.derivates.append(derivate_W)
+        derivate_W = self.derivates['dZ'].dot(prev_output.T)
+        self.derivates.update({'dW':derivate_W})
 
     def hidden_derivates(self, prev_output, next_layer):
         '''
@@ -113,28 +118,28 @@ class NetworkLayers(object):
         :param next_layer: next layer, class instance
         :return: derivates of current layer, except the output layer
         '''
-        self.derivates.append(next_layer.weights.T.dot(next_layer.derivates[1]))
+        self.derivates.update({'dA':next_layer.weights.T.dot(next_layer.derivates['dZ'])})
 
         if self.activation =='tanh':
-            derivate_Z = self.derivates[0] * tanh_derivate(self.input)
+            derivate_Z = self.derivates['dA'] * tanh_derivate(self.input)
         else:
-            derivate_Z = self.derivates[0] * relu_derivate(self.input)
-        self.derivates.append(derivate_Z)
+            derivate_Z = self.derivates['dA'] * relu_derivate(self.input)
+        self.derivates.update({'dZ':derivate_Z})
 
         # add regularization
         if self.reg =='l2':
-            derivate_W = self.derivates[1] * prev_output + self.lambd / self.input.shape[1] * self.weights
+            derivate_W = self.derivates['dZ'].dot(prev_output.T) + self.lambd / self.input.shape[1] * self.weights
         else:
-            derivate_W = (1 + self.lambd / self.input.shape[1]) * self.derivates[1] * prev_output
-        self.derivates.append(derivate_W)
+            derivate_W = (1 + self.lambd / self.input.shape[1]) * self.derivates['dZ'].dot(prev_output.T)
+        self.derivates.update({'dW':derivate_W})
 
     def update_parameters(self, alpha):
         '''
         :param alpha: learning rate
         :return: learned parameters, include: weights, bias
         '''
-        self.weights -= alpha * self.derivates[2]
-        self.bias -= alpha * self.derivates[1]
+        self.weights = self.weights - alpha * self.derivates['dW']
+        self.bias = self.bias - alpha * np.sum(self.derivates['dZ'], axis=1, keepdims=True) / self.input.shape[1]
 
 
 class MomentumNetwork(NetworkLayers):
@@ -146,15 +151,20 @@ class MomentumNetwork(NetworkLayers):
         '''
         super(MomentumNetwork, self).__init__(**kwargs)
         self.beta = beta
+        self.momentums = None
+
+    def initialize_parameters(self, col):
+        super().initialize_parameters(col)
         self.momentums = [np.zeros(self.weights.shape), np.zeros(self.bias.shape)]
 
     def momentum(self):
-        self.momentums[0] = self.beta * self.momentums[0] + self.beta * self.derivates[2]
-        self.momentums[1] = self.beta * self.momentums[1] + self.beta * self.derivates[1]
+        self.momentums[0] = self.beta * self.momentums[0] + (1 - self.beta) * self.derivates['dW']
+        self.momentums[1] = self.beta * self.momentums[1] + \
+                            (1 - self.beta) * np.sum(self.derivates['dZ'], axis=1, keepdims=True)
 
     def update_parameters(self, alpha):
-        self.weights -= alpha * self.momentums[0]
-        self.bias -= alpha * self.momentums[1]
+        self.weights = self.weights - alpha * self.momentums[0]
+        self.bias = self.bias - alpha * self.momentums[1] / self.input.shape[1]
 
 
 class RMSNetwork(NetworkLayers):
@@ -165,18 +175,25 @@ class RMSNetwork(NetworkLayers):
         :param epsilon: avoid divided by zero
         :param kwargs: (layer, neurons, activation, reg, lambd, drop, final)
         '''
-        super(NetworkLayers, self).__init__(**kwargs)
+        super(RMSNetwork, self).__init__(**kwargs)
         self.beta2 = beta2
         self.epsilon = epsilon
+        self.quadric_momentums = None
+
+    def initialize_parameters(self, col):
+        super().initialize_parameters(col)
         self.quadric_momentums = [np.zeros(self.weights.shape), np.zeros(self.bias.shape)]
 
     def quadric_momentum(self):
-        self.quadric_momentums[0] = self.beta2 * self.quadric_momentums[0] + (1 - self.beta2) * self.derivates[2] ** 2
-        self.quadric_momentums[1] = self.beta2 * self.quadric_momentums[1] + (1 - self.beta2) * self.derivates[1] ** 2
+        self.quadric_momentums[0] = self.beta2 * self.quadric_momentums[0] + \
+                                    (1 - self.beta2) * self.derivates['dW'] ** 2
+        self.quadric_momentums[1] = self.beta2 * self.quadric_momentums[1] + \
+                                    (1 - self.beta2) * np.sum(self.derivates['dZ'], axis=1, keepdims=True) ** 2
 
     def update_parameters(self, alpha):
-        self.weights -= alpha * self.derivates[2] / np.sqrt(self.quadric_momentums[0] + self.epsilon)
-        self.bias -= alpha * self.derivates[1] / np.sqrt(self.quadric_momentums[1] + self.epsilon)
+        self.weights = self.weights - alpha * self.derivates['dW'] / np.sqrt(self.quadric_momentums[0] + self.epsilon)
+        self.bias = self.bias - alpha * np.sum(self.derivates['dZ'], axis=1, keepdims=True) \
+                    / (np.sqrt(self.quadric_momentums[1] + self.epsilon) * self.input.shape[1])
 
 class AdamNetwork(MomentumNetwork, RMSNetwork):
 
@@ -186,7 +203,12 @@ class AdamNetwork(MomentumNetwork, RMSNetwork):
         '''
         super(AdamNetwork, self).__init__(**kwargs)
 
+    def initialize_parameters(self, col):
+        super().initialize_parameters(col)
+        self.quadric_momentums = [np.zeros(self.weights.shape), np.zeros(self.bias.shape)]
+
     def update_parameters(self, alpha):
-        self.weights -= alpha * self.momentums[0] / np.sqrt(self.quadric_momentums[0] + self.epsilon)
-        self.bias -= alpha * self.momentums[1] / np.sqrt(self.quadric_momentums[1] + self.epsilon)
+        self.weights = self.weights - alpha * self.momentums[0] / np.sqrt(self.quadric_momentums[0] + self.epsilon)
+        self.bias = self.bias - alpha * self.momentums[1] / \
+                    (np.sqrt(self.quadric_momentums[1] + self.epsilon) * self.input.shape[1])
 
