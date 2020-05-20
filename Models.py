@@ -26,7 +26,7 @@ def forward_propagation(networks, data):
 
 def compute_cost(output, labels, log_loss=False):
     if log_loss:
-        cost = - 1 / labels.shape[1] * np.sum(labels * np.log(output) + (1 - labels) * np.log(1 - output))
+        cost = - 1 / labels.shape[1] * np.sum(labels * np.log(output))
     else:
         cost = 1 / labels.shape[1] * np.sum((labels - output) ** 2)
 

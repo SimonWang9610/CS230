@@ -25,5 +25,5 @@ y_test = scale_labels(y_test, len(np.unique(y)))
 networks = [NetworkLayers(layer=1, neurons=200), NetworkLayers(layer=2, neurons=50),
             NetworkLayers(layer=3, neurons=10, final=True)]
 
-build_model(X_train, y_train, X_test, y_test, 200, networks, 0.01, 128, model='gd', log_loss=False)
+build_model(X_train, y_train, X_test, y_test, 200, networks, 0.01, 128, model='gd', log_loss=True)
 
