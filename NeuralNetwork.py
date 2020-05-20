@@ -138,8 +138,8 @@ class NetworkLayers(object):
         :param alpha: learning rate
         :return: learned parameters, include: weights, bias
         '''
-        self.weights = self.weights - alpha * self.derivates['dW'] / self.input.shape[0]
-        self.bias = self.bias - alpha * np.sum(self.derivates['dZ'], axis=1, keepdims=True) / self.input.shape[1]
+        self.weights -= alpha * self.derivates['dW'] / self.input.shape[0]
+        self.bias -= alpha * np.sum(self.derivates['dZ'], axis=1, keepdims=True) / self.input.shape[1]
 
 
 class MomentumNetwork(NetworkLayers):
