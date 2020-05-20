@@ -110,5 +110,5 @@ def build_model(X_train, y_train, X_test, y_test, iterations, networks, alpha, b
             update_parameters(networks, alpha)
         train_accuracy = correct / X_train.shape[1]
         test_accuracy = evaluate(networks, X_test, y_test) / y_test.shape[1]
-        if epoch % 100 ==0:
+        if epoch % 10 ==0:
             print(f'Cost for {epoch}-th: {cost}, Train-Accuracy:{train_accuracy}, Test-Accuracy:{test_accuracy}')
