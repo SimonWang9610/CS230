@@ -35,6 +35,7 @@ and have the cost `nan` problem. the learning rate is `0.0001` in my testing
 
 ## Conclusion
 - `RMS` and `Adam` can overfit the train dataset easier, their hyper-parameters and parameters need to be tuned carefully
-
+- in the final layer, `error= output - y`, which is the same as that of MSE by chance,
+ but actually its loss function should be `loss=y*log(output) + (1-y)*log(1-output)`
 ## Next step
 - add `Batch Normalization` to this application (5/19/2020 updated)
